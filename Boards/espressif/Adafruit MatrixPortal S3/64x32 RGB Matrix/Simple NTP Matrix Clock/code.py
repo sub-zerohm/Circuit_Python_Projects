@@ -6,6 +6,7 @@
 import os
 import time
 import board
+import digitalio
 import microcontroller
 import displayio
 import terminalio
@@ -19,7 +20,6 @@ import adafruit_ntp
 from adafruit_display_text import label
 from adafruit_bitmap_font import bitmap_font
 displayio.release_displays()
-
 # Initalize Wifi, Connection Manager, Request Session
 pool = adafruit_connection_manager.get_radio_socketpool(wifi.radio)
 requests = adafruit_requests.Session(pool)
@@ -34,8 +34,8 @@ DISPLAY_ROTATION = 0
 BIT_DEPTH = 4
 AUTO_REFRESH = True
 DEBUG_TIME = False  # For manually testing times
-TZ_OFFSET = -5  # time zone offset in hours from UTC
-Time_Format = "24"  # 12 hour (AM/PM) or 24 hour (military) clock
+TZ_OFFSET = -4  # time zone offset in hours from UTC
+Time_Format = "12"  # 12 hour (AM/PM) or 24 hour (military) clock
 
 # Instantiate 64x32 Matrix Panel
 matrix = rgbmatrix.RGBMatrix(
@@ -93,7 +93,11 @@ def _format_sec(datetime):
     """ Get the current second"""
     return (f"{datetime.tm_sec:02}")
 
-def _format_time(datetime, format="12"):
+def _format_date(datetime):
+    """ For the uppper date small font"""
+    return (f"{datetime.tm_mon:02}-{datetime.tm_mday:02}-{datetime.tm_year:02}")
+
+def _format_time(datetime, format="24"):
     """ Time is 12 hour or 24 hour format"""
     if format == "12":
         hour = datetime.tm_hour % 12
@@ -113,7 +117,6 @@ def _format_time(datetime, format="12"):
     if format == "24":
         return (f"{datetime.tm_hour:02}:{datetime.tm_min:02}:{datetime.tm_sec:02}")
 
-
 # Quick Colors for Labels
 TEXT_BLACK = 0x000000
 TEXT_BLUE = 0x0000FF
@@ -122,7 +125,7 @@ TEXT_GRAY = 0x8B8B8B
 TEXT_GREEN = 0x00FF00
 TEXT_LIGHTBLUE = 0x90C7FF
 TEXT_MAGENTA = 0xFF00FF
-TEXT_ORANGE = 0xFFA500
+TEXT_ORANGE = 0xB83300
 TEXT_PURPLE = 0x800080
 TEXT_RED = 0xFF0000
 TEXT_TEAL = 0xB2D8D8
@@ -130,17 +133,25 @@ TEXT_WHITE = 0xFFFFFF
 TEXT_YELLOW = 0xFFFF00
 
 # To use custom font uncomment below and change terminalio.FONT
-# font_IBMPlex = bitmap_font.load_font("/fonts/IBMPlexMono-Medium-24_jep.bdf")
+font_IBMPlex = bitmap_font.load_font("/fonts/spleen-8x16.bdf")
+font_DateFont = bitmap_font.load_font("/fonts/spleen-5x8.bdf")
 
-clock_label = label.Label(terminalio.FONT)
+date_label = label.Label(font_DateFont)
+date_label.anchor_point = (0.5, 0.5)
+date_label.anchored_position = (DISPLAY_WIDTH / 2, DISPLAY_HEIGHT / 3.3)
+date_label.scale = 1
+date_label.color = TEXT_ORANGE
+
+clock_label = label.Label(font_IBMPlex)
 clock_label.anchor_point = (0.5, 0.5)
-clock_label.anchored_position = (DISPLAY_WIDTH / 2, DISPLAY_HEIGHT / 2)
+clock_label.anchored_position = (DISPLAY_WIDTH / 2, DISPLAY_HEIGHT / 1.4)
 clock_label.scale = 1
-clock_label.color = TEXT_RED
+clock_label.color = TEXT_ORANGE
 
 # Groups Setup
 main_group = displayio.Group()
 main_group.append(clock_label)
+main_group.append(date_label)
 display.root_group = main_group
 
 now = time.localtime()
@@ -151,7 +162,7 @@ try:
     time.sleep(1)
 except OSError as e:
     print(f"RTC or NTP Error: {e}")
-    
+
 print("===============================")
 while True:
     now = time.localtime()
@@ -163,6 +174,8 @@ while True:
     current_time = "{}".format(_format_time(now, format=Time_Format))
     current_min = "{}".format(_format_min(now))
     current_sec = "{}".format(_format_sec(now))
+    current_date = "{}".format(_format_date(now))
+    date_label.text = f"{current_date}"
     clock_label.text = f"{current_time}"
     if DEBUG_TIME:
         print(f"Monotonic: {time.monotonic()}")
